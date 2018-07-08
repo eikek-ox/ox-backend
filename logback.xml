@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configuration>
+
+    <!-- Uncomment to enable JMX default configurator -->
+    <!-- jmxConfigurator /-->
+
+    <!--
+    It is possible to activate extended filters to log events for specific contexts, users or sessions on
+    all log levels. Use the command line tool '/opt/open-xchange/sbin/logconf' to enable these filters at
+    runtime. To avoid flooding your logs with large amounts of useless events, the loggers that are allowed
+    to bypass the globally configured log levels are whitelist-based. The whitelist can be configured in the
+    'value'-attribute below as a comma-separated list. It works hierarchical, i.e. the value 'com.openexchanges'
+    allows all loggers below (e.g. 'com.openexchange.some.Logger').
+    -->
+    <property name="com.openexchange.logging.filter.loggerWhitelist" scope="context" value="com.openexchange"/>
+
+    <!--
+    Propagates changes made to the level of any logback-classic logger onto the java.util.logging framework.
+    If this listener will be deleted, ox backend will add it programmatically.
+    -->
+    <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator"/>
+
+    <!--
+    Adds the required PatternLayouts if not yet done by another Open-Xchange PatternLayoutEncoder. This is
+    especially required when using SYSLOG appender. If you remove this definition and no PatternLayout can be
+    found a PARSER_ERROR will be thrown within the log.
+    -->
+    <define class="com.openexchange.logback.extensions.SyslogPatternLayoutActivator" name="syslogPatternLayoutActivator"/>
+
+    <appender class="ch.qos.logback.core.ConsoleAppender" name="CONSOLE">
+        <encoder class="com.openexchange.logback.extensions.ExtendedPatternLayoutEncoder">
+            <pattern>%date{"yyyy-MM-dd'T'HH:mm:ss,SSSZ"} %-5level [%thread] %class.%method\(%class{0}.java:%line\)%n%message%n%lmdc%exception{full}</pattern>
+        </encoder>
+    </appender>
+    <appender class="ch.qos.logback.core.rolling.RollingFileAppender" name="FILE">
+        <file>/var/log/open-xchange/open-xchange.log.0</file>
+        <rollingPolicy class="com.openexchange.logback.extensions.FixedWindowRollingPolicy">
+            <fileNamePattern>/var/log/open-xchange/open-xchange.log.%i</fileNamePattern>
+            <minIndex>1</minIndex>
+            <maxIndex>99</maxIndex>
+        </rollingPolicy>
+        <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+            <maxFileSize>2MB</maxFileSize>
+        </triggeringPolicy>
+        <encoder class="com.openexchange.logback.extensions.ExtendedPatternLayoutEncoder">
+            <pattern>%date{"yyyy-MM-dd'T'HH:mm:ss,SSSZ"} %-5level [%thread] %class.%method\(%class{0}.java:%line\)%n%message%n%lmdc%exception{full}</pattern>
+        </encoder>
+    </appender>
+
+    <appender class="ch.qos.logback.core.rolling.RollingFileAppender" name="FILE_COMPAT">
+        <file>/var/log/open-xchange/open-xchange.log.0</file>
+        <rollingPolicy class="com.openexchange.logback.extensions.FixedWindowRollingPolicy">
+            <fileNamePattern>/var/log/open-xchange/open-xchange.log.%i</fileNamePattern>
+            <minIndex>1</minIndex>
+            <maxIndex>99</maxIndex>
+        </rollingPolicy>
+        <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+            <maxFileSize>2MB</maxFileSize>
+        </triggeringPolicy>
+        <encoder class="com.openexchange.logback.extensions.ExtendedPatternLayoutEncoder">
+            <pattern>%d{"MMM dd, yyyy H:mm:ss a"} %class.%method\(%class{0}.java:%line\)%n%level: %message%n%lmdc%exception{full}</pattern>
+        </encoder>
+    </appender>
+
+    <appender class="ch.qos.logback.classic.net.SyslogAppender" name="SYSLOG">
+        <syslogHost>localhost</syslogHost>
+        <facility>local2</facility>
+        <suffixPattern>%date open-xchange %-5level [%logger][%thread]: %class.%method\(%class{0}.java:%line\)%n%lmdc %n %message%n</suffixPattern>
+    </appender>
+
+    <appender class="ch.qos.logback.classic.AsyncAppender" name="ASYNC">
+        <queueSize>2048</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>true</includeCallerData>
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="ASYNC"/>
+    </root>
+
+    <!--
+    Important note:
+    The following option ensures, that all login relevant information is logged correctly. Such information is essential to detect
+    and to address session issues, potentially caused by 3rd parties.
+
+    Open-Xchange strongly suggests NOT to modify the configuration for the classes 'com.openexchange.login.internal.LoginPerformer'
+    and 'com.openexchange.sessiond.impl.SessionHandler' to coarser logging settings (like WARN, ERROR and OFF). If you do so
+    the Open-Xchange server will revert your change and set the log level for these classes to INFO. Finer settings (like TRACE, DEBUG
+    and ALL) are allowed and will not be overridden.
+    -->
+    <logger level="INFO" name="com.openexchange.login.internal.LoginPerformer"/>
+    <logger level="INFO" name="com.openexchange.sessiond.impl.SessionHandler"/>
+
+    <!-- Package based logging. Possible levels: TRACE, DEBUG, INFO, WARN and ERROR -->
+    <logger level="INFO" name="sun.rmi"/>
+    <logger level="WARN" name="org.apache"/>
+    <logger level="INFO" name="com.sun"/>
+    <logger level="INFO" name="javax.management"/>
+    <logger level="WARN" name="javax.jmdns"/>
+    <logger level="WARN" name="com.hazelcast"/>
+    <logger level="WARN" name="org.glassfish.grizzly"/>
+
+    <logger level="ERROR" name="org.jaudiotagger"/>
+    <logger level="WARN" name="com.openexchange.documentconverter.impl.Manager"/>
+    <logger level="WARN" name="com.gargoylesoftware.htmlunit"/>
+
+    <logger level="WARN" name="org.docx4j"/>
+    <logger level="WARN" name="org.xlsx4j"/>
+    <logger level="WARN" name="org.pptx4j"/>
+
+    <!-- Set to DEBUG to log SOAP requests for debugging purpose -->
+    <logger level="WARN" name="org.apache.cxf"/>
+    <logger level="WARN" name="com.openexchange.soap.cxf.logger"/>
+
+    <!-- Set this to DEBUG to log all exceptions -->
+    <logger level="INFO" name="com.openexchange.ajax.requesthandler.DispatcherServlet"/>
+
+    <!-- Log access to UI files -->
+    <!-- <logger name="com.openexchange.appsuite" level="DEBUG"/> -->
+
+    <!-- Set this to DEBUG to log spreadsheet operations more in detail -->
+    <!-- <logger name="com.openexchange.office.calcengine.client.impl.CalcEngineJob" level="DEBUG"/> -->
+
+</configuration>

@@ -1,0 +1,127 @@
+#!/bin/sh
+# Required ENV vars:
+# MYSQL_ROOT_PW
+INIT_STATE_FILE=/opt/open-xchange/etc/dockerox_initialized
+SERVICE_TIMEOUT_SECONDS=120
+MYSQL_HOST=mysql
+MYSQL_PORT=3306
+OX_BACKEND_PORT=8009
+
+check_errs()
+{
+  # Function. Parameter 1 is the return code
+  # Para. 2 is text to display on failure.
+  if [ "${1}" -ne "0" ]; then
+    echo "ERROR # ${1} : ${2}"
+    exit 1
+  fi
+}
+
+wait_for_port() {
+  echo "Waiting for service ${1} to become available..."
+  for i in `seq 1 $SERVICE_TIMEOUT_SECONDS`
+  do
+    nc -z -w $SERVICE_TIMEOUT_SECONDS ${2} ${3} && break
+    if [ "$i" -eq "$SERVICE_TIMEOUT_SECONDS" ]; then
+      echo "ERROR: Timeout waiting for service ${1} to become available"
+      exit 1
+    fi
+    sleep 1
+  done
+  echo "Success."
+}
+
+
+start_ox_in_background() {
+  wait_for_port "mysql" $MYSQL_HOST $MYSQL_PORT
+  echo "Starting open-xchange in background..."
+  sudo -u open-xchange /opt/open-xchange/sbin/open-xchange | sed 's/^/[OX]/' &
+
+   wait_for_port "OX-Backend" localhost $OX_BACKEND_PORT
+  
+  echo "Expecting ox service to be ready"
+
+}
+
+pre_start_config() {
+  pwgen -N1 -s 32 > /opt/open-xchange/etc/pw_admin_master
+  pwgen -N1 -s 32 > /opt/open-xchange/etc/pw_admin
+  pwgen -N1 -s 32 > /opt/open-xchange/etc/pw_config_db
+  PW_ADMIN_MASTER=`cat /opt/open-xchange/etc/pw_admin_master`
+  PW_ADMIN=`cat /opt/open-xchange/etc/pw_admin`
+  PW_CONFIG_DB=`cat /opt/open-xchange/etc/pw_config_db`
+  #things to be done, before the ox backend is started the first time
+
+  mkdir -p /opt/open-xchange/etc
+  cp -p -r /opt/open-xchange/etc_template/* /opt/open-xchange/etc/
+  
+  cd /opt/open-xchange/etc
+  git init
+  git add .
+  git commit -m initial
+
+  wait_for_port "mysql" $MYSQL_HOST $MYSQL_PORT
+
+  /opt/open-xchange/sbin/initconfigdb --configdb-host=mysql --mysql-root-passwd=$MYSQL_ROOT_PW --configdb-pass=$PW_CONFIG_DB -a
+
+/opt/open-xchange/sbin/oxinstaller \
+--no-license \
+--servername=oxserver \
+--configdb-pass=$PW_CONFIG_DB \
+--servermemory 512 \
+--master-pass=$PW_ADMIN_MASTER \
+--ajp-bind-port=* \
+--network-listener-host=* \
+--configdb-readhost=mysql \
+--configdb-writehost=mysql
+
+}
+
+post_start_config() {
+    #Config to be done after starting the ox backend the first time
+
+    echo "Registering servers..."
+
+    /opt/open-xchange/sbin/registerserver -n oxserver -A oxadminmaster -P $PW_ADMIN_MASTER
+
+    mkdir /var/opt/filestore
+    chown open-xchange:open-xchange /var/opt/filestore
+
+    /opt/open-xchange/sbin/registerfilestore -A oxadminmaster -P $PW_ADMIN_MASTER \
+    -t file:/var/opt/filestore -s 1000000
+
+    echo "Registering database..."
+
+    /opt/open-xchange/sbin/registerdatabase -A oxadminmaster -P $PW_ADMIN_MASTER -n oxdatabase -p $MYSQL_ROOT_PW -m true -H mysql
+
+    cd /opt/open-xchange/etc
+
+    echo "Creating default context..."
+
+    /opt/open-xchange/sbin/createcontext -A oxadminmaster -P $PW_ADMIN_MASTER -c 1 \
+    -u oxadmin -d "Context Admin" -g Admin -s User -p $PW_ADMIN -L defaultcontext \
+    -e oxadmin@example.com -q 1024 --access-combination-name=groupware_standard
+}
+
+if [ -f $INIT_STATE_FILE ]; then
+ echo "Installation skipped, as it is already done(found file $INIT_STATE_FILE)."
+ cat $INIT_STATE_FILE
+ start_ox_in_background
+ sleep 9999d
+else
+
+  echo "Installing OX. This will first create a config db and then run the ox installer..."
+  pre_start_config
+  start_ox_in_background
+  post_start_config
+
+  echo "First time start completed. Creating file $INIT_STATE_FILE"
+
+  touch $INIT_STATE_FILE
+  echo "initialzed" > $INIT_STATE_FILE
+
+  sleep 9999d
+fi
+
+
+
