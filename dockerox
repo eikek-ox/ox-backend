@@ -46,10 +46,11 @@ start_ox_in_background() {
 pre_start_config() {
   pwgen -N1 -s 32 > /opt/open-xchange/etc/pw_admin_master
   pwgen -N1 -s 32 > /opt/open-xchange/etc/pw_admin
-  pwgen -N1 -s 32 > /opt/open-xchange/etc/pw_config_db
+  #pwgen -N1 -s 32 > /opt/open-xchange/etc/pw_config_db
   PW_ADMIN_MASTER=`cat /opt/open-xchange/etc/pw_admin_master`
   PW_ADMIN=`cat /opt/open-xchange/etc/pw_admin`
-  PW_CONFIG_DB=`cat /opt/open-xchange/etc/pw_config_db`
+  PW_CONFIG_DB="$MYSQL_ROOT_PW"
+  #PW_CONFIG_DB=`cat /opt/open-xchange/etc/pw_config_db`
   #things to be done, before the ox backend is started the first time
 
   mkdir -p /opt/open-xchange/etc
