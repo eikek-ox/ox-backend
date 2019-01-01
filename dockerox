@@ -63,36 +63,38 @@ pre_start_config() {
 
   wait_for_port "mysql" $MYSQL_HOST $MYSQL_PORT
 
+  echo "Running initconfigdb..."
   /opt/open-xchange/sbin/initconfigdb --configdb-host=mysql --mysql-root-passwd=$MYSQL_ROOT_PW --configdb-pass=$PW_CONFIG_DB -a
 
-/opt/open-xchange/sbin/oxinstaller \
---no-license \
---servername=oxserver \
---configdb-pass=$PW_CONFIG_DB \
---servermemory 512 \
---master-pass=$PW_ADMIN_MASTER \
---ajp-bind-port=* \
---network-listener-host=* \
---configdb-readhost=mysql \
---configdb-writehost=mysql
+  echo "Running oxinstaller..."
+  /opt/open-xchange/sbin/oxinstaller \
+  --no-license \
+  --servername=oxserver \
+  --configdb-pass=$PW_CONFIG_DB \
+  --servermemory 512 \
+  --master-pass=$PW_ADMIN_MASTER \
+  --ajp-bind-port=* \
+  --network-listener-host=* \
+  --configdb-readhost=mysql \
+  --configdb-writehost=mysql
 
 }
 
 post_start_config() {
     #Config to be done after starting the ox backend the first time
 
-    echo "Registering servers..."
+    echo "Registering server..."
 
     /opt/open-xchange/sbin/registerserver -n oxserver -A oxadminmaster -P $PW_ADMIN_MASTER
 
-    mkdir /var/opt/filestore
+    echo "Creating and registering filestore..."
+    mkdir -p /var/opt/filestore
     chown open-xchange:open-xchange /var/opt/filestore
 
     /opt/open-xchange/sbin/registerfilestore -A oxadminmaster -P $PW_ADMIN_MASTER \
     -t file:/var/opt/filestore -s 1000000
 
     echo "Registering database..."
-
     /opt/open-xchange/sbin/registerdatabase -A oxadminmaster -P $PW_ADMIN_MASTER -n oxdatabase -p $MYSQL_ROOT_PW -m true -H mysql
 
     cd /opt/open-xchange/etc
