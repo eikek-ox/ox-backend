@@ -101,7 +101,7 @@ post_start_config() {
 
     /opt/open-xchange/sbin/createcontext -A oxadminmaster -P $PW_ADMIN_MASTER -c 1 \
     -u oxadmin -d "Context Admin" -g Admin -s User -p $PW_ADMIN -L defaultcontext \
-    -e oxadmin@example.com -q 1024 --access-combination-name=groupware_standard
+    -e oxadmin@example.com -q 1024 --access-combination-name=all
 }
 
 if [ -f $INIT_STATE_FILE ]; then
